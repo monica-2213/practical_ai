@@ -1,35 +1,45 @@
-from flask import Flask, request, jsonify, render_template
-from analyze import read_image
+# Import necessary libraries
+from dotenv import load_dotenv
+import os
+import requests
 
-app = Flask(__name__, template_folder='templates')
+# Load environment variables from the .env file
+load_dotenv()
 
-@app.route("/")
-def home():
-    return render_template('index.html')
+# Get credentials from environment variables
+AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+AZURE_KEY = os.getenv("AZURE_KEY")
 
+# Example function to call the Azure Vision API (OCR)
+def analyze_image(image_url):
+    headers = {
+        'Ocp-Apim-Subscription-Key': AZURE_KEY,
+        'Content-Type': 'application/json'
+    }
 
-# API at /api/v1/analysis/ 
-@app.route("/api/v1/analysis/", methods=['GET'])
-def analysis():
-    # Try to get the URI from the JSON
-    try:
-        get_json = request.get_json()
-        image_uri = get_json['uri']
-    except:
-        return jsonify({'error': 'Missing URI in JSON'}), 400
-    
-    # Try to get the text from the image
-    try:
-        res = read_image(image_uri)
-        
-        response_data = {
-            "text": res
-        }
-    
-        return jsonify(response_data), 200
-    except:
-        return jsonify({'error': 'Error in processing'}), 500
+    params = {
+        'language': 'en',
+        'detectOrientation': 'true'
+    }
 
+    # Form the Azure Vision API request
+    body = {
+        'url': image_url
+    }
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    # Send the request to the Azure Vision API
+    response = requests.post(f'{AZURE_ENDPOINT}/vision/v3.2/ocr', headers=headers, params=params, json=body)
+
+    # Check if the request was successful
+    if response.status_code == 200:
+        result = response.json()
+        return result
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
+# Example usage
+image_url = "https://www.simplilearn.com/ice9/free_resources_article_thumb/what_is_Computer_Vision.jpg"
+result = analyze_image(image_url)
+
+# Print the OCR result
+print(result)
